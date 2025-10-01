@@ -44,35 +44,38 @@ An intelligent Azure DevOps assistant that combines natural language processing,
 1. **Clone and Setup Environment**
 ```powershell
 git clone https://github.com/rogerlai168/AdoAIassistant.git
-cd AdoAIassistant
+cd AdoAIassistant\AdoCopy
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-2. **Configure Environment**
-```powershell
-# Copy example configuration
-cp .env.example .env
-```
+2. **Configure Environment Variables**
 
-3. **Edit `.env` Configuration**
+Create a `.env` file in the project root with the following configuration:
+
 ```env
 # Azure DevOps Configuration
 AZDO_ORG=yourorganization
 AZDO_PROJECT=yourproject
+AZDO_API_VERSION=7.1
+AZDO_RESOURCE_ID=499b84ac-1321-427f-aa17-267ca6975798
 
-# Azure OpenAI Configuration (for AI features)
+# Azure OpenAI Configuration
 AZURE_OPENAI_ENDPOINT=https://your-openai-resource.openai.azure.com/
 AZURE_OPENAI_MODEL=gpt-5-mini
 AZURE_OPENAI_DEPLOYMENT=gpt-5-mini
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
 
-# API Configuration
-AZDO_API_VERSION=7.1
+# AI Token Configuration (Optional - uses smart defaults)
+AZURE_OPENAI_MAX_TOKENS_DEFAULT=8000
+AZURE_OPENAI_MAX_RETRY_TOKENS=10000
+AZURE_OPENAI_MIN_TOKENS_GPT5=1000
+AZURE_OPENAI_RETRY_MULTIPLIER=1.5
+AZURE_OPENAI_TEST_TOKENS=600
 ```
 
-4. **Authenticate and Run**
+3. **Authenticate and Run**
 ```powershell
 az login
 streamlit run app_chat_smart.py
@@ -107,14 +110,38 @@ streamlit run app_chat_smart.py
 ### Core Components
 
 - **[`app_chat_smart.py`](app_chat_smart.py)**: Modern Streamlit UI with AI-powered intent detection
+- **[`ai_api.py`](ai_api.py)**: Azure OpenAI client with environment-based configuration
+- **[`AzureAPI.py`](AzureAPI.py)**: Azure DevOps authentication and API utilities
 - **[`mcp/ai_parser.py`](mcp/ai_parser.py)**: Intelligent natural language to WIQL conversion
 - **[`mcp/intelligent_summarizer.py`](mcp/intelligent_summarizer.py)**: Advanced AI analysis with newsletter generation
 - **[`mcp/tools.py`](mcp/tools.py)**: MCP tool integration layer
 - **[`mcp/ado_client.py`](mcp/ado_client.py)**: Azure DevOps REST API client with parallel processing
 - **[`mcp/wiql_builder.py`](mcp/wiql_builder.py)**: Microsoft-compliant WIQL query generation
+- **[`mcp/config.py`](mcp/config.py)**: Centralized configuration with environment variable support
 - **[`wiql_fields.py`](wiql_fields.py)**: Comprehensive Azure DevOps field mappings
 - **[`mcp/normalize.py`](mcp/normalize.py)**: Work item data normalization and partner detection
-- **[`granular_analyzer.py`](granular_analyzer.py)**: Copilot-style granular analysis engine
+
+### Configuration Management
+
+All configuration is managed through environment variables in the `.env` file:
+
+#### Azure DevOps Settings
+- `AZDO_ORG`: Organization name (e.g., "Microsoft")
+- `AZDO_PROJECT`: Project name (e.g., "OS")
+- `AZDO_API_VERSION`: REST API version (default: "7.1")
+- `AZDO_RESOURCE_ID`: Azure AD resource ID (Microsoft constant)
+
+#### Azure OpenAI Settings
+- `AZURE_OPENAI_ENDPOINT`: Your Azure OpenAI endpoint URL
+- `AZURE_OPENAI_MODEL`: Model name (e.g., "gpt-5-mini")
+- `AZURE_OPENAI_DEPLOYMENT`: Deployment name
+- `AZURE_OPENAI_API_VERSION`: OpenAI API version
+
+#### Token Configuration (Optional)
+- `AZURE_OPENAI_MAX_TOKENS_DEFAULT`: Default max tokens (default: 2000)
+- `AZURE_OPENAI_MAX_RETRY_TOKENS`: Max tokens for retries (default: 8000)
+- `AZURE_OPENAI_MIN_TOKENS_GPT5`: Minimum tokens for GPT-5 (default: 500)
+- `AZURE_OPENAI_RETRY_MULTIPLIER`: Token increase multiplier (default: 1.5)
 
 ### AI Pipeline
 
@@ -129,6 +156,7 @@ streamlit run app_chat_smart.py
 - **Microsoft Compliance**: Follows Azure DevOps documentation standards
 - **Performance Optimized**: Parallel comment/update loading, query limiting
 - **Security Ready**: Azure AD authentication with proper scoping
+- **Environment-Based Configuration**: No hardcoded values, all settings in `.env`
 - **Unicode Support**: International team and content compatibility
 
 ## 🎯 Advanced Features
@@ -151,13 +179,6 @@ streamlit run app_chat_smart.py
 - **Context-aware reuse** - AI knows when cached data is relevant
 - **Transparent cache status** in UI sidebar
 
-### Granular Analysis Engine
-- **Comments/Discussion Analysis**: Deep-dive into collaboration patterns
-- **Timeline Analysis**: Development velocity and workflow insights
-- **Update History Analysis**: Change patterns and state transitions
-- **Tag Pattern Analysis**: Categorization and organizational insights
-- **Content Analysis**: Technical scope and requirements assessment
-
 ### Format-Aware Analysis
 - **Newsletter Generation**: Professional team newsletter format
 - **Executive Summaries**: High-level stakeholder reports  
@@ -170,9 +191,15 @@ streamlit run app_chat_smart.py
 ```python
 MAX_ITEMS_DEFAULT = 250        # Maximum items to retrieve
 MAX_ITEMS_UI_DEFAULT = 150     # UI default for user queries
-MAX_TOKENS_ANALYSIS = 10000    # AI analysis token limit
+MAX_TOKENS_ANALYSIS = 10000    # AI analysis token limit (configurable via env)
+MAX_TOKENS_WIQL = 2000         # WIQL parsing token limit (configurable via env)
 WIQL_DEFAULT_TOP = 150         # WIQL query result limit
 ```
+
+### Environment Variable Priority
+1. **`.env` file values** (highest priority)
+2. **System environment variables**
+3. **Sensible defaults** (fallback)
 
 ### UI Optimization
 - **Wide Layout**: Full-screen work item display
@@ -219,6 +246,7 @@ WIQL_DEFAULT_TOP = 150         # WIQL query result limit
 - **Faster Insights**: AI-generated summaries replace manual analysis
 - **Context Awareness**: System understands team workflow and data freshness
 - **Natural Interface**: No need to learn WIQL syntax or query operators
+- **Environment-Based Config**: Easy deployment across dev/test/prod
 
 ### For Project Managers  
 - **Automated Reporting**: Newsletter and executive summary generation
@@ -229,8 +257,15 @@ WIQL_DEFAULT_TOP = 150         # WIQL query result limit
 - **Enterprise Scale**: Handles millions of work items efficiently
 - **Security Compliant**: Azure AD integration with proper access controls
 - **Standards Based**: Microsoft documentation compliant implementation
+- **Configuration Management**: Centralized `.env` based configuration
 
 ## 🛠️ Technical Implementation
+
+### Configuration Best Practices
+- **No Hardcoded Values**: All settings via environment variables
+- **Validation on Startup**: Configuration validated when app initializes
+- **Sensible Fallbacks**: Works with minimal configuration
+- **Environment-Specific**: Easy to maintain dev/test/prod configs
 
 ### WIQL Compliance Engine
 - **Field Reference Mapping**: Complete System.* and Microsoft.VSTS.* field support
@@ -276,22 +311,28 @@ WIQL_DEFAULT_TOP = 150         # WIQL query result limit
 - **Pandas**: Data processing and analysis
 - **Requests**: HTTP client for Azure DevOps APIs
 - **Azure-Identity**: Azure AD authentication
+- **Azure-Core**: Azure SDK core functionality
 - **OpenAI**: AI analysis and query generation
-- **FastAPI/Uvicorn**: MCP server framework
-- **Python-dotenv**: Environment configuration
+- **Python-dotenv**: Environment configuration management
 
-### Missing Modules (Need Implementation)
-- **`ai_api.py`**: AI client abstraction layer
-- **`AzureAPI.py`**: Azure authentication utilities
+All dependencies managed via `requirements.txt` - no manual package tracking needed!
 
 ## 🤝 Contributing
 
 1. **Fork the repository**
 2. **Create feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Run tests** (`python -m pytest`)
-4. **Commit changes** (`git commit -m 'Add amazing feature'`)
-5. **Push to branch** (`git push origin feature/amazing-feature`)
-6. **Open Pull Request**
+3. **Update `.env` for your environment** (copy from `.env.example`)
+4. **Run tests** (`python -m pytest`)
+5. **Commit changes** (`git commit -m 'Add amazing feature'`)
+6. **Push to branch** (`git push origin feature/amazing-feature`)
+7. **Open Pull Request**
+
+## 🔒 Security Best Practices
+
+- **Never commit `.env` files** - they contain sensitive credentials
+- **Use Azure AD authentication** - no API keys in code
+- **Validate environment variables** on startup
+- **Follow least-privilege principle** for Azure DevOps access
 
 ## 📄 License
 
@@ -305,4 +346,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ for Azure DevOps teams who want intelligent, AI-powered work item analysis.**
+**Built with ❤️ for Azure DevOps teams who want intelligent, AI-powered work item analysis with enterprise-grade configuration management.**

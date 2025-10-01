@@ -9,6 +9,7 @@ requests>=2.31.0
 
 # Azure SDK
 azure-identity>=1.15.0
+azure-core>=1.29.0
 
 # OpenAI API
 openai>=1.0.0

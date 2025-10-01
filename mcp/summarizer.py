@@ -31,7 +31,8 @@ Provide a detailed, professional summary explaining the work item's purpose and 
     ]
     
     # Aggressive retry with large token limits
-    token_sizes = [800, 1200, 1800, 2500, 3500, 5000]
+    token_sizes_str = os.getenv("AZURE_OPENAI_RETRY_TOKEN_SIZES", "800,1200,1800,2500,3500,5000")
+    token_sizes = [int(x.strip()) for x in token_sizes_str.split(",")]
     
     for max_tokens in token_sizes:
         try:

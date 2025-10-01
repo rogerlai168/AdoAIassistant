@@ -23,13 +23,55 @@ class AzureAIClient:
         except ImportError:
             pass  # dotenv not installed, rely on system env vars
         
-        # Configuration from environment variables
-        self.endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "https://aieastus-2.openai.azure.com/")
-        self.model_name = os.getenv("AZURE_OPENAI_MODEL", "gpt-5-mini")
-        self.deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini")
-        self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+        # Configuration from environment variables (no hardcoded defaults)
+        self.endpoint = self._get_required_env("AZURE_OPENAI_ENDPOINT")
+        self.model_name = self._get_required_env("AZURE_OPENAI_MODEL")
+        self.deployment = self._get_required_env("AZURE_OPENAI_DEPLOYMENT")
+        self.api_version = self._get_required_env("AZURE_OPENAI_API_VERSION")
+        
+        # Token limits from environment variables
+        self.default_max_tokens = int(os.getenv("AZURE_OPENAI_MAX_TOKENS_DEFAULT", "2000"))
+        self.max_retry_tokens = int(os.getenv("AZURE_OPENAI_MAX_RETRY_TOKENS", "8000"))
         
         self._client = None
+        
+        # Validate configuration on initialization
+        self._validate_config()
+        
+    def _get_required_env(self, var_name: str) -> str:
+        """Get a required environment variable or raise an error."""
+        value = os.getenv(var_name)
+        if not value:
+            raise ValueError(
+                f"Required environment variable '{var_name}' is not set. "
+                f"Please configure it in your .env file or environment."
+            )
+        return value.strip()
+    
+    def _validate_config(self):
+        """Validate the Azure OpenAI configuration."""
+        # Validate endpoint format
+        if not self.endpoint.startswith("https://"):
+            raise ValueError(f"AZURE_OPENAI_ENDPOINT must start with 'https://': {self.endpoint}")
+        
+        if not self.endpoint.endswith("/"):
+            self.endpoint += "/"
+        
+        # Validate API version format
+        if not self.api_version.startswith("20"):
+            raise ValueError(f"AZURE_OPENAI_API_VERSION should be in format YYYY-MM-DD: {self.api_version}")
+        
+        # Validate model and deployment are not empty
+        if not self.model_name or not self.deployment:
+            raise ValueError("AZURE_OPENAI_MODEL and AZURE_OPENAI_DEPLOYMENT cannot be empty")
+        
+        print(f"✅ Azure OpenAI Configuration Loaded:")
+        print(f"   🌐 Endpoint: {self.endpoint}")
+        print(f"   🤖 Model: {self.model_name}")
+        print(f"   🚀 Deployment: {self.deployment}")
+        print(f"   📅 API Version: {self.api_version}")
+        print(f"   🎯 Default Max Tokens: {self.default_max_tokens}")
+        print(f"   🔄 Max Retry Tokens: {self.max_retry_tokens}")
         
     def _get_client(self) -> AzureOpenAI:
         """Initialize and cache the Azure OpenAI client."""
@@ -56,8 +98,8 @@ class AzureAIClient:
     def chat_completion(
         self, 
         messages: List[Dict[str, str]], 
-        max_tokens: int = 2000,  # Better default for GPT-5-mini reasoning + content
-        auto_retry: bool = True  # Automatically retry with more tokens if truncated
+        max_tokens: int = None,
+        auto_retry: bool = True
     ) -> str:
         """
         Get a chat completion from the Azure OpenAI model.
@@ -71,14 +113,19 @@ class AzureAIClient:
             The generated response content as a string
         """
         
+        # Get default from environment or use configured default
+        if max_tokens is None:
+            max_tokens = self.default_max_tokens
+        
         def _attempt_completion(attempt_max_tokens: int, attempt_number: int = 1) -> Dict[str, Any]:
             """Internal method to attempt completion with token monitoring."""
             try:
                 client = self._get_client()
                 
                 # For GPT-5-mini, ensure minimum token limit to account for reasoning tokens
-                if self.model_name == "gpt-5-mini" and attempt_max_tokens < 500:
-                    attempt_max_tokens = 500
+                min_tokens = int(os.getenv("AZURE_OPENAI_MIN_TOKENS_GPT5", "500"))
+                if self.model_name == "gpt-5-mini" and attempt_max_tokens < min_tokens:
+                    attempt_max_tokens = min_tokens
                 
                 # Prepare request parameters - following Azure sample code pattern
                 request_params = {
@@ -138,15 +185,16 @@ class AzureAIClient:
             raise RuntimeError(f"Failed to get chat completion: {result['error']}")
         
         # Auto-retry logic if enabled and response was truncated
-        if auto_retry and result["is_truncated"] and max_tokens < 8000:
+        if auto_retry and result["is_truncated"] and max_tokens < self.max_retry_tokens:
             print(f"🔄 Auto-retrying with increased token limit...")
             
             # Increase tokens intelligently based on current usage
             tokens_used = result["tokens_used"]
             
-            # Estimate needed tokens (with 50% buffer)
-            estimated_needed = int(tokens_used * 1.5)
-            new_max_tokens = min(estimated_needed, 8000)  # Cap at reasonable limit
+            # Get retry multiplier from environment
+            retry_multiplier = float(os.getenv("AZURE_OPENAI_RETRY_MULTIPLIER", "1.5"))
+            estimated_needed = int(tokens_used * retry_multiplier)
+            new_max_tokens = min(estimated_needed, self.max_retry_tokens)
             
             if new_max_tokens > max_tokens:
                 print(f"   📈 Increasing from {max_tokens} to {new_max_tokens} tokens")
@@ -171,26 +219,34 @@ class AzureAIClient:
         Returns:
             Recommended max_completion_tokens value
         """
-        # Base recommendations matrix
-        recommendations = {
+        # Base recommendations matrix - configurable via environment
+        default_recommendations = {
             "summary": {"small": 1000, "medium": 1500, "large": 2500},
             "detailed": {"small": 2000, "medium": 3000, "large": 4500}, 
             "comprehensive": {"small": 3000, "medium": 4500, "large": 6000}
         }
         
-        base_tokens = recommendations.get(analysis_type, recommendations["summary"]).get(data_size, 2000)
+        # Allow override via environment variables
+        env_key = f"AZURE_OPENAI_TOKENS_{analysis_type.upper()}_{data_size.upper()}"
+        env_value = os.getenv(env_key)
+        
+        if env_value:
+            base_tokens = int(env_value)
+        else:
+            base_tokens = default_recommendations.get(analysis_type, default_recommendations["summary"]).get(data_size, 2000)
         
         # Adjust for GPT-5-mini reasoning tokens
+        min_tokens = int(os.getenv("AZURE_OPENAI_MIN_TOKENS_GPT5", "500"))
         if self.model_name == "gpt-5-mini":
-            base_tokens = max(base_tokens, 500)  # Minimum for reasoning
+            base_tokens = max(base_tokens, min_tokens)
         
         # Cap at model limits
-        max_allowed = min(base_tokens, 8000)  # Reasonable upper bound
+        max_allowed = min(base_tokens, self.max_retry_tokens)
         
         print(f"💡 Token Recommendation:")
         print(f"   📊 Data size: {data_size}, Analysis: {analysis_type}")
         print(f"   🎯 Recommended tokens: {max_allowed}")
-        print(f"   📈 Auto-retry enabled up to 8000 tokens if truncated")
+        print(f"   📈 Auto-retry enabled up to {self.max_retry_tokens} tokens if truncated")
         
         return max_allowed
 
@@ -211,9 +267,12 @@ class AzureAIClient:
             
             client = self._get_client()
             
+            # Use configurable test tokens
+            test_tokens = int(os.getenv("AZURE_OPENAI_TEST_TOKENS", "500"))
+            
             request_params = {
                 "messages": messages,
-                "max_completion_tokens": 500,  # Increased for GPT-5-mini reasoning tokens
+                "max_completion_tokens": test_tokens,
                 "model": self.deployment
             }
             
@@ -264,7 +323,7 @@ def get_ai_client() -> AzureAIClient:
 
 def chat_with_ai(
     messages: List[Dict[str, str]], 
-    max_tokens: int = 16384,
+    max_tokens: int = None,  # Remove hardcoded default
     temperature: Optional[float] = None
 ) -> str:
     """
@@ -272,7 +331,7 @@ def chat_with_ai(
     
     Args:
         messages: List of message dicts with 'role' and 'content' keys
-        max_tokens: Maximum tokens in the response
+        max_tokens: Maximum tokens in the response (uses environment default if None)
         temperature: Sampling temperature (None for default)
         
     Returns:
@@ -280,13 +339,14 @@ def chat_with_ai(
     """
     client = get_ai_client()
     
-    # Smart token allocation
-    if len(messages) <= 5:
-        max_tokens = client.estimate_tokens_needed("small", "detailed")  # 2000
-    elif len(messages) <= 20:
-        max_tokens = client.estimate_tokens_needed("medium", "summary")  # 1500  
-    else:
-        max_tokens = client.estimate_tokens_needed("large", "comprehensive")  # 6000
+    # Smart token allocation based on message count if not specified
+    if max_tokens is None:
+        if len(messages) <= 5:
+            max_tokens = client.estimate_tokens_needed("small", "detailed")  # 2000
+        elif len(messages) <= 20:
+            max_tokens = client.estimate_tokens_needed("medium", "summary")  # 1500  
+        else:
+            max_tokens = client.estimate_tokens_needed("large", "comprehensive")  # 6000
 
     # Auto-retry enabled by default
     response = client.chat_completion(messages, max_tokens=max_tokens, auto_retry=True)
