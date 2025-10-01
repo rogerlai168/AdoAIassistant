@@ -234,8 +234,7 @@ WIQL_DEFAULT_TOP = 150         # WIQL query result limit
 
 - **[WIQL Compliance](WIQL_COMPLIANCE.md)**: Microsoft documentation alignment details
 - **[Copilot Design](COPILOT_DESIGN.md)**: AI-powered granular analysis architecture
-- **[Performance Guide](CONDITIONAL_AI_SUMMARY.md)**: Speed vs intelligence optimization
-- **[Two-Step Workflow](TWO_STEP_WORKFLOW.md)**: Advanced workflow patterns
+
 
 ## 🤝 Contributing
 
