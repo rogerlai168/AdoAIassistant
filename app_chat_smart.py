@@ -5,7 +5,7 @@ import os
 import json
 from mcp.tools import tool_query_work_items
 from mcp.config import MAX_ITEMS_DEFAULT, MAX_ITEMS_UI_DEFAULT, MAX_ITEMS_UI_MIN
-from ai_api import get_ai_client
+# from ai_api import get_ai_client
 
 st.set_page_config(page_title="AI ADO Copilot", layout="wide")
 st.title("🤖 AI ADO Copilot - Intelligent Assistant")
