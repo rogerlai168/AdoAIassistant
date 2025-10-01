@@ -37,13 +37,13 @@ An intelligent Azure DevOps assistant that combines natural language processing,
 - Python 3.8+
 - Azure CLI (`az login` required)
 - Access to Azure DevOps organization
-- Azure OpenAI endpoint (optional, for AI features)
+- Azure OpenAI endpoint (for AI features)
 
 ### Installation
 
 1. **Clone and Setup Environment**
 ```powershell
-git clone <repository-url>
+git clone https://github.com/rogerlai168/AdoAIassistant.git
 cd AdoAIassistant
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -106,11 +106,15 @@ streamlit run app_chat_smart.py
 
 ### Core Components
 
-- **`app_chat_smart.py`**: Modern Streamlit UI with AI-powered intent detection
-- **`mcp/ai_parser.py`**: Intelligent natural language to WIQL conversion
-- **`mcp/intelligent_summarizer.py`**: Advanced AI analysis with newsletter generation
-- **`mcp/tools.py`**: MCP tool integration layer
-- **`mcp/ado_client.py`**: Azure DevOps REST API client
+- **[`app_chat_smart.py`](app_chat_smart.py)**: Modern Streamlit UI with AI-powered intent detection
+- **[`mcp/ai_parser.py`](mcp/ai_parser.py)**: Intelligent natural language to WIQL conversion
+- **[`mcp/intelligent_summarizer.py`](mcp/intelligent_summarizer.py)**: Advanced AI analysis with newsletter generation
+- **[`mcp/tools.py`](mcp/tools.py)**: MCP tool integration layer
+- **[`mcp/ado_client.py`](mcp/ado_client.py)**: Azure DevOps REST API client with parallel processing
+- **[`mcp/wiql_builder.py`](mcp/wiql_builder.py)**: Microsoft-compliant WIQL query generation
+- **[`wiql_fields.py`](wiql_fields.py)**: Comprehensive Azure DevOps field mappings
+- **[`mcp/normalize.py`](mcp/normalize.py)**: Work item data normalization and partner detection
+- **[`granular_analyzer.py`](granular_analyzer.py)**: Copilot-style granular analysis engine
 
 ### AI Pipeline
 
@@ -123,7 +127,7 @@ streamlit run app_chat_smart.py
 ### Enterprise Features
 
 - **Microsoft Compliance**: Follows Azure DevOps documentation standards
-- **Performance Optimized**: Query limiting and smart pagination
+- **Performance Optimized**: Parallel comment/update loading, query limiting
 - **Security Ready**: Azure AD authentication with proper scoping
 - **Unicode Support**: International team and content compatibility
 
@@ -147,6 +151,13 @@ streamlit run app_chat_smart.py
 - **Context-aware reuse** - AI knows when cached data is relevant
 - **Transparent cache status** in UI sidebar
 
+### Granular Analysis Engine
+- **Comments/Discussion Analysis**: Deep-dive into collaboration patterns
+- **Timeline Analysis**: Development velocity and workflow insights
+- **Update History Analysis**: Change patterns and state transitions
+- **Tag Pattern Analysis**: Categorization and organizational insights
+- **Content Analysis**: Technical scope and requirements assessment
+
 ### Format-Aware Analysis
 - **Newsletter Generation**: Professional team newsletter format
 - **Executive Summaries**: High-level stakeholder reports  
@@ -155,7 +166,7 @@ streamlit run app_chat_smart.py
 
 ## 🔧 Configuration
 
-### Centralized Settings (`mcp/config.py`)
+### Centralized Settings ([`mcp/config.py`](mcp/config.py))
 ```python
 MAX_ITEMS_DEFAULT = 250        # Maximum items to retrieve
 MAX_ITEMS_UI_DEFAULT = 150     # UI default for user queries
@@ -172,7 +183,7 @@ WIQL_DEFAULT_TOP = 150         # WIQL query result limit
 ## 🧪 Testing & Validation
 
 ### Automated Testing Suite
-- **Unit Tests**: Core WIQL generation and parsing validation
+- **WIQL Compliance**: Complete validation of Microsoft documentation compliance
 - **Integration Tests**: End-to-end pipeline with live API calls
 - **Performance Tests**: Large-scale dataset handling (58M+ items)
 - **Unicode Tests**: International character support validation
@@ -191,13 +202,16 @@ WIQL_DEFAULT_TOP = 150         # WIQL query result limit
 - **User Stories**: Feature requirements and specifications  
 - **Deliverables**: Project milestones and deliverables
 - **Scenarios**: Test cases and user scenarios
+- **Epics/Features**: Portfolio-level work items
 
 ### Field Coverage
 - **Core Fields**: ID, Title, State, Type, Assigned To, Priority
 - **Dates**: Created, Changed, Closed, Resolved dates with smart filtering
 - **Hierarchy**: Area Path, Iteration Path with tree operations
+- **Scheduling**: Effort, Original Estimate, Remaining Work, Completed Work
 - **Custom Fields**: Organization-specific field support
 - **Comments**: Full discussion history with partner comment filtering
+- **Updates**: Complete change history and state transitions
 
 ## 🎯 Benefits
 
@@ -216,6 +230,25 @@ WIQL_DEFAULT_TOP = 150         # WIQL query result limit
 - **Security Compliant**: Azure AD integration with proper access controls
 - **Standards Based**: Microsoft documentation compliant implementation
 
+## 🛠️ Technical Implementation
+
+### WIQL Compliance Engine
+- **Field Reference Mapping**: Complete System.* and Microsoft.VSTS.* field support
+- **Operator Validation**: Proper operators by field type (String, DateTime, TreePath, etc.)
+- **Date Macros**: @Today, @StartOfWeek, @StartOfMonth, @StartOfYear support
+- **Unicode Safety**: International character handling with SQL injection prevention
+
+### MCP (Model Context Protocol) Server
+- **Tool Integration**: Standardized tool calling interface
+- **State Management**: Session context and caching
+- **Error Handling**: Comprehensive error reporting and recovery
+
+### Performance Optimizations
+- **Parallel Processing**: Concurrent comment and update loading
+- **Smart Caching**: Intelligent data reuse with TTL management
+- **Query Optimization**: Result limiting and pagination
+- **Conditional Loading**: Load comments only when likely to exist
+
 ## 🔮 Future Enhancements
 
 ### Planned Features
@@ -232,10 +265,24 @@ WIQL_DEFAULT_TOP = 150         # WIQL query result limit
 
 ## 📚 Documentation
 
-- **[WIQL Compliance](WIQL_COMPLIANCE.md)**: Microsoft documentation alignment details
-- **[Copilot Design](COPILOT_DESIGN.md)**: AI-powered granular analysis architecture
-- **[Performance Guide](CONDITIONAL_AI_SUMMARY.md)**: Speed vs intelligence optimization
-- **[Two-Step Workflow](TWO_STEP_WORKFLOW.md)**: Advanced workflow patterns
+- **[Azure DevOps Schema Reference](ADO_FULL_SCHEMA_REFERENCE.md)**: Complete field and API documentation
+- **[WIQL Implementation Update](WIQL_UPDATE_SUMMARY.md)**: Microsoft compliance achievements
+- **[Environment Configuration](.env.example)**: Setup and configuration guide
+
+## 🔧 Dependencies
+
+### Core Dependencies
+- **Streamlit**: Modern web UI framework
+- **Pandas**: Data processing and analysis
+- **Requests**: HTTP client for Azure DevOps APIs
+- **Azure-Identity**: Azure AD authentication
+- **OpenAI**: AI analysis and query generation
+- **FastAPI/Uvicorn**: MCP server framework
+- **Python-dotenv**: Environment configuration
+
+### Missing Modules (Need Implementation)
+- **`ai_api.py`**: AI client abstraction layer
+- **`AzureAPI.py`**: Azure authentication utilities
 
 ## 🤝 Contributing
 
@@ -252,9 +299,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙋‍♂️ Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourorg/AdoAIassistant/issues)
-- **Documentation**: [Wiki](https://github.com/yourorg/AdoAIassistant/wiki)
-- **Community**: [Discussions](https://github.com/yourorg/AdoAIassistant/discussions)
+- **Issues**: [GitHub Issues](https://github.com/rogerlai168/AdoAIassistant/issues)
+- **Documentation**: [GitHub Wiki](https://github.com/rogerlai168/AdoAIassistant/wiki)
+- **Community**: [GitHub Discussions](https://github.com/rogerlai168/AdoAIassistant/discussions)
 
 ---
 
