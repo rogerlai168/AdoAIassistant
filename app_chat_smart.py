@@ -235,7 +235,9 @@ EXAMPLES:
             {"role": "user", "content": intent_prompt}
         ]
         
-        response = client.chat_completion(messages, max_tokens=500, auto_retry=True)
+        # Use configured minimum tokens instead of hardcoded 500
+        intent_tokens = int(os.getenv("AZURE_OPENAI_INTENT_TOKENS", os.getenv("AZURE_OPENAI_MIN_TOKENS_GPT5", "1000")))
+        response = client.chat_completion(messages, max_tokens=intent_tokens, auto_retry=True)
         intent_result = json.loads(response.strip())
         
         # Validate the response structure

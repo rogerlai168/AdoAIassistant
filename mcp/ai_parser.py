@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ai_api import AzureAIClient
-from mcp.config import MAX_ITEMS_DEFAULT, MAX_ITEMS_UI_DEFAULT, MAX_TOKENS_WIQL
+from mcp.config import MAX_TOKENS_WIQL, MAX_ITEMS_UI_DEFAULT  # <-- ADD MAX_ITEMS_UI_DEFAULT
 
 def parse_with_ai(client: AzureAIClient, user_query: str):
     """Parse user query using AI to detect WIQL generation AND summarization intent."""
@@ -79,7 +79,9 @@ Output: {
             ]
             
             # Get WIQL query directly from AI
-            raw = client.chat_completion(messages, max_tokens=1800, auto_retry=True)
+            # Use configured WIQL parsing token limit
+            parser_tokens = int(os.getenv("AZURE_OPENAI_PARSER_TOKENS", str(MAX_TOKENS_WIQL)))
+            raw = client.chat_completion(messages, max_tokens=parser_tokens, auto_retry=True)
             
             if not raw or raw.strip() == "":
                 raise ValueError("AI parser returned empty response")
