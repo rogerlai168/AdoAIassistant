@@ -1,7 +1,8 @@
 import traceback
 import os
 import sys
-from typing import Any, Dict
+import time  # <-- ADD THIS IMPORT
+from typing import Any, Dict, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -32,7 +33,7 @@ _last_query_cache = {
     "timestamp": None
 }
 
-def tool_query_work_items(p: Dict[str, Any], cached_items: list = None):
+def tool_query_work_items(p: Dict[str, Any], cached_items: Optional[list] = None):  # <-- Change to Optional[list]
     """
     Query work items from ADO or analyze cached items with AI.
     
@@ -47,10 +48,9 @@ def tool_query_work_items(p: Dict[str, Any], cached_items: list = None):
     print("=" * (len(q) + 20))
     
     # If cached items provided, use them for AI analysis
-    if cached_items is not None:
+    if cached_items is not None:  # Fix: Check for None explicitly
         items = cached_items
         wiql_query = f"-- cached items ({len(items)})"
-        import time
         _last_query_cache["items"] = items
         _last_query_cache["query"] = p.get("query", "")
         _last_query_cache["timestamp"] = time.time()
@@ -95,20 +95,26 @@ def tool_query_work_items(p: Dict[str, Any], cached_items: list = None):
         return {"summary": f"No work items found for query: {q}", "items": [], "count": 0, "wiql_query": wiql_query}
     
     print(f"🔍 Found {len(ids)} work item IDs, loading details...")
+    batch_start = time.time()
     raws = ctx.client.batch(ids)
+    print(f"⏱️ Batch loading took: {time.time() - batch_start:.1f}s")
     
     # 🚀 OPTIMIZED: Use conditional comment loading (only loads when items have comments)
     if p.get("include_comments", True):
         print(f"💬 Smart loading comments (checking which items have them)...")
+        comment_start = time.time()
         comments_by_id = ctx.client.comments_conditional(raws, verbose=True, top=MAX_ITEMS_COMMENTS)
+        print(f"⏱️ Comment loading took: {time.time() - comment_start:.1f}s")
     else:
         print(f"⚡ Skipping comment loading (disabled)")
         comments_by_id = {r["id"]: [] for r in raws}
     
     # OPTIMIZATION: Parallel updates loading  
     print(f"🚀 Loading updates for {len(raws)} work items in parallel...")
+    update_start = time.time()
     work_item_ids = [r["id"] for r in raws]
     updates_by_id = ctx.client.updates_parallel(work_item_ids, max_workers=15)
+    print(f"⏱️ Update loading took: {time.time() - update_start:.1f}s")
     
     # Process work items with pre-loaded comments and updates
     items = []
@@ -118,7 +124,6 @@ def tool_query_work_items(p: Dict[str, Any], cached_items: list = None):
         items.append(normalize(r, c, u))
     
     # Cache the results
-    import time
     _last_query_cache["items"] = items
     _last_query_cache["query"] = q
     _last_query_cache["timestamp"] = time.time()

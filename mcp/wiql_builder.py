@@ -75,7 +75,11 @@ def date_macro(relative_period: str) -> Optional[str]:
         "last_6_months": "@StartOfMonth - 6",
     }
     
-    return date_mappings.get(relative_period.lower() if relative_period else None)
+    # Fix: Check for None before calling .lower()
+    if not relative_period:
+        return None
+    
+    return date_mappings.get(relative_period.lower())
 
 def build_wiql_query(spec: Dict[str, Any]) -> str:
     """

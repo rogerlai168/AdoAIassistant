@@ -55,7 +55,7 @@ with st.sidebar:
     
     # Show cache status
     if st.session_state.last_query_data:
-        cache_age = time.time() - st.session_state.last_query_time
+        cache_age = time.time() - (st.session_state.last_query_time or time.time())  # Fix: Provide fallback
         cache_items = st.session_state.last_query_data.get("count", 0)
         st.success(f"📦 Cached: {cache_items} items ({cache_age/60:.1f}m ago)")
     else:
@@ -379,11 +379,10 @@ if prompt:
             with st.spinner(f"🧠 Analyzing cached data: {prompt}"):
                 analysis_result = handle_cached_analysis(prompt, st.session_state.last_query_data, intent_result)
         
-            if analysis_result:
-                # Process and display results similar to existing code
-                summary_content = analysis_result["result"].get("summary", "Analysis completed.")
-                individual_summaries = analysis_result["result"].get("individual_summaries", {})
-                cached_items = st.session_state.last_query_data["items"]
+            if analysis_result:  # <-- ADD THIS CHECK
+                # Modern freeform AI analysis - single comprehensive summary
+                summary_content = analysis_result.get("result", {}).get("summary", "Analysis completed.")
+                cached_items = st.session_state.last_query_data.get("items", []) if st.session_state.last_query_data else []
                 
                 analysis_type = intent_result.get("analysis_request", {}).get("analysis_type", "full")
                 
@@ -392,7 +391,6 @@ if prompt:
                     "analysis_type": analysis_type,
                     "items_analyzed": len(cached_items),
                     "summary": summary_content,
-                    "individual_count": len(individual_summaries),
                     "cached": True
                 }
                 
@@ -406,38 +404,17 @@ if prompt:
                     }
                 })
                 
-                # Create response with individual ticket summaries
-                response_parts = [summary_content]
-                
-                if individual_summaries and any(v.strip() for v in individual_summaries.values()):
-                    response_parts.append("\n\n## 📋 Individual Ticket Summaries:")
-                    
-                    for item_id, summary in individual_summaries.items():
-                        if summary and len(summary.strip()) > 0:
-                            # Find the ticket title for better context
-                            ticket_title = "Unknown"
-                            for item in cached_items:
-                                if str(item.get("id")) == str(item_id):
-                                    ticket_title = item.get("title", "Unknown")[:60]
-                                    if len(item.get("title", "")) > 60:
-                                        ticket_title += "..."
-                                    break
-                            
-                            response_parts.append(f"\n**#{item_id} - {ticket_title}**")
-                            response_parts.append(f"\n{summary}\n")
-                
-                response_content = "".join(response_parts)
-                
+                # Add AI response directly (no legacy individual summaries)
                 st.session_state.history.append({
                     "role": "assistant",
-                    "content": response_content
+                    "content": summary_content
                 })
             else:
                 st.session_state.history.append({
                     "role": "assistant",
                     "content": "❌ Failed to analyze cached data. Please try a new query."
                 })
-        
+
         elif intent_type == "CACHED_ANALYSIS" and not cache_valid:
             # User wants cached analysis but no valid cache
             st.session_state.history.append({

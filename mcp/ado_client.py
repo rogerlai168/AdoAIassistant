@@ -220,7 +220,7 @@ ORDER BY [System.ChangedDate] DESC"""
                 
             comments_loaded = self.comments_parallel(
                 items_with_comments, 
-                max_workers=10,  # Increased for better performance
+                max_workers=20,  # INCREASE from 10 to 20
                 verbose=verbose,
                 top=top
             )
