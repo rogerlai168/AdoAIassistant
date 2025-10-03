@@ -143,6 +143,29 @@ All configuration is managed through environment variables in the `.env` file:
 - `AZURE_OPENAI_MIN_TOKENS_GPT5`: Minimum tokens for GPT-5 (default: 500)
 - `AZURE_OPENAI_RETRY_MULTIPLIER`: Token increase multiplier (default: 1.5)
 
+### Cache Configuration
+
+Control how long query results are cached for follow-up AI analysis:
+
+```bash
+# Unlimited cache (default) - cached until next query
+CACHE_TTL_SECONDS=0
+
+# 10 minutes cache
+CACHE_TTL_SECONDS=600
+
+# 30 minutes cache
+CACHE_TTL_SECONDS=1800
+
+# 1 hour cache
+CACHE_TTL_SECONDS=3600
+```
+
+**Behavior:**
+- `0` or negative value = **Unlimited cache** (cache persists until you run a new query)
+- Positive value = Cache expires after specified seconds
+- Invalid/missing value = Falls back to unlimited cache with warning
+
 ### AI Pipeline
 
 1. **Intent Detection**: AI analyzes user request to determine action type

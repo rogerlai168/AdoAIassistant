@@ -48,10 +48,8 @@ def tool_query_work_items(p: Dict[str, Any], cached_items: list = None):
     
     # If cached items provided, use them for AI analysis
     if cached_items is not None:
-        # Freeform cached analysis entry point should not generate summaries here.
         items = cached_items
         wiql_query = f"-- cached items ({len(items)})"
-        # Cache metadata refresh
         import time
         _last_query_cache["items"] = items
         _last_query_cache["query"] = p.get("query", "")
@@ -67,29 +65,26 @@ def tool_query_work_items(p: Dict[str, Any], cached_items: list = None):
     # Normal flow: parse query and get items from ADO
     print("🤖 Starting AI parsing...")
     
-    # Try AI parser first if enabled, otherwise use heuristic parser
+    # Try AI parser first if enabled
     if p.get("use_ai_parser", True):
         try:
             spec = parse_with_ai(ctx.llm, q)
             
-            # Check if this is direct WIQL generation
             if spec.get("direct_wiql"):
-                # Use the WIQL directly from AI
                 wiql_query = spec["wiql_query"]
                 max_items = spec.get("max_items", 50)
             else:
-                # Fall back to JSON -> WIQL builder approach
                 max_items = p.get("max_items") or spec.get("max_items") or 50
-                spec["max_items"] = min(int(max_items), 250)  # Increased from 200 to 250
+                spec["max_items"] = min(int(max_items), 250)
                 wiql_query = build_wiql_query(spec)
                 
         except Exception as e:
             print(f"❌ AI parser failed: {e}")
-            raise RuntimeError("AI parser failed and heuristic parsing has been disabled. Please check your query syntax.")
+            raise RuntimeError("AI parser failed. Please check your query syntax.")
     else:
         spec = heuristic_parse(q)
         max_items = p.get("max_items") or spec.get("max_items") or 50
-        spec["max_items"] = min(int(max_items), 250)  # Increased from 200 to 250
+        spec["max_items"] = min(int(max_items), 250)
         wiql_query = build_wiql_query(spec)
         max_items = spec["max_items"]
 
@@ -102,17 +97,18 @@ def tool_query_work_items(p: Dict[str, Any], cached_items: list = None):
     print(f"🔍 Found {len(ids)} work item IDs, loading details...")
     raws = ctx.client.batch(ids)
     
-    # Optimize comments loading based on requirements
+    # 🚀 OPTIMIZED: Use conditional comment loading (only loads when items have comments)
     if p.get("include_comments", True):
-        print(f"💬 Loading comments for {len(raws)} work items...")
-        comments_by_id = ctx.client.comments_parallel(ids)
+        print(f"💬 Smart loading comments (checking which items have them)...")
+        comments_by_id = ctx.client.comments_conditional(raws, verbose=True, top=MAX_ITEMS_COMMENTS)
     else:
+        print(f"⚡ Skipping comment loading (disabled)")
         comments_by_id = {r["id"]: [] for r in raws}
     
-    # OPTIMIZATION: Parallel updates loading
-    print(f"🚀 Optimized updates loading for {len(raws)} work items...")
+    # OPTIMIZATION: Parallel updates loading  
+    print(f"🚀 Loading updates for {len(raws)} work items in parallel...")
     work_item_ids = [r["id"] for r in raws]
-    updates_by_id = ctx.client.updates_parallel(work_item_ids)
+    updates_by_id = ctx.client.updates_parallel(work_item_ids, max_workers=15)
     
     # Process work items with pre-loaded comments and updates
     items = []
@@ -121,13 +117,13 @@ def tool_query_work_items(p: Dict[str, Any], cached_items: list = None):
         u = updates_by_id.get(r["id"], [])
         items.append(normalize(r, c, u))
     
-    # Cache the results for potential follow-up AI analysis
+    # Cache the results
     import time
     _last_query_cache["items"] = items
     _last_query_cache["query"] = q
     _last_query_cache["timestamp"] = time.time()
     
-    # Optional inline freeform summary if caller supplies a freeform prompt
+    # Optional inline freeform summary
     freeform_prompt = spec.get("freeform_prompt")
     summary = ""
     if freeform_prompt and items:
@@ -141,7 +137,7 @@ def tool_query_work_items(p: Dict[str, Any], cached_items: list = None):
         "count": len(items),
         "items": items,
         "summary": summary,
-        "individual_summaries": {}  # always empty now
+        "individual_summaries": {}
     }
 
 def tool_get_work_item(p):

@@ -1,12 +1,16 @@
-import streamlit as st
-import pandas as pd
-import time
 import os
-import json
+import time
+import json  # <-- ADD THIS LINE
+import streamlit as st
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 from mcp.tools import tool_query_work_items
 from mcp.config import MAX_ITEMS_DEFAULT, MAX_ITEMS_UI_DEFAULT, MAX_ITEMS_UI_MIN
 
-# Import AI client - moved after other imports
+# Initialize AI client
 from ai_api import get_ai_client
 
 st.set_page_config(page_title="AI ADO Copilot", layout="wide")
@@ -314,6 +318,21 @@ def handle_cached_analysis(query, cached_data, intent_result):
         "info": f"🧠 AI {analysis_type} analysis of {result.get('count', 0)} cached items"
     }
 
+def get_cache_ttl():
+    """
+    Get cache TTL from environment variable.
+    Returns:
+        - None (unlimited cache) if CACHE_TTL_SECONDS is 0 or not set
+        - Number of seconds if CACHE_TTL_SECONDS > 0
+    """
+    ttl_str = os.getenv("CACHE_TTL_SECONDS", "0")  # Default: unlimited
+    try:
+        ttl = int(ttl_str)
+        return None if ttl <= 0 else ttl
+    except ValueError:
+        print(f"⚠️ Invalid CACHE_TTL_SECONDS value: {ttl_str}, using unlimited cache")
+        return None
+
 # Display chat history
 for message in st.session_state.history:
     render_message(message)
@@ -330,11 +349,12 @@ if prompt:
         st.write(f"🔍 **Processing query:** {prompt}")
     
     # AI-powered intent detection
-    cache_ttl = 600  # 10 minutes cache
+    # Check if we have valid cached data for AI analysis intent detection
+    cache_ttl = get_cache_ttl()  # None = unlimited, or seconds
     cache_valid = (
         st.session_state.last_query_data and 
         st.session_state.last_query_time and 
-        (time.time() - st.session_state.last_query_time) < cache_ttl
+        (cache_ttl is None or (time.time() - st.session_state.last_query_time) < cache_ttl)
     )
     
     with st.chat_message("assistant"):
