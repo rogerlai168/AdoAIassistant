@@ -220,4 +220,4 @@ backup/
 
 # Test outputs
 test_output/
-test_results/
+test_results/.env
